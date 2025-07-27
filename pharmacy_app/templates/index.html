@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy POS - CDH Pharmacy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💊%3C/text%3E%3C/svg%3E">
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-blue-600">💊 CDH Pharmacy</h1>
+                    </div>
+                    <div class="ml-10">
+                        <div class="nav-tabs flex space-x-8">
+                            <a href="/" class="nav-tab active">POS</a>
+                            <a href="/history" class="nav-tab">History</a>
+                            <a href="/reports" class="nav-tab">Reports</a>
+                            <a href="/manage" class="nav-tab">Manage</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-500">
+                    <span id="currentDateTime"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column: Search & Pending Item -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Medicine Search -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="text-lg font-semibold text-gray-900">🔍 Smart Medicine Search</h2>
+                        <p class="text-sm text-gray-600">Search by name, generic, company, strength, or package size</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="relative">
+                            <input 
+                                type="text" 
+                                id="medicineSearch" 
+                                placeholder="Type medicine name, generic, company... (e.g. 'parace square', 'napa 50ml')"
+                                class="form-input text-lg"
+                                autocomplete="off"
+                            >
+                            <div id="searchDropdown" class="search-dropdown hidden"></div>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">
+                            💡 Use keyboard arrows to navigate, Enter to select, Escape to close
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending Item Panel -->
+                <div id="pendingItemPanel" class="hidden"></div>
+
+                <!-- Patient Information -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="text-lg font-semibold text-gray-900">👥 Patient Information</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Select Existing Patient</label>
+                                <select id="patientSelect" class="form-select">
+                                    <option value="">Select existing patient or enter new</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Patient Name *</label>
+                                <input type="text" id="patientName" class="form-input" placeholder="Enter patient name" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                                <input type="tel" id="patientPhone" class="form-input" placeholder="Phone number">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                                <input type="text" id="patientAddress" class="form-input" placeholder="Address">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Bed No</label>
+                                <input type="text" id="patientBedNo" class="form-input" placeholder="Bed number">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">C/O (Care Of)</label>
+                                <input type="text" id="patientCareOf" class="form-input" placeholder="Care of">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Cart & Totals -->
+            <div class="space-y-6">
+                <!-- Current Bill -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="text-lg font-semibold text-gray-900">🛒 Current Bill</h2>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="cartItems" class="min-h-40">
+                            <div class="text-gray-500 text-center py-8">No items in bill</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bill Summary -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="text-lg font-semibold text-gray-900">💰 Bill Summary</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="cart-summary">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-gray-600">Subtotal:</span>
+                                <span id="subtotalAmount" class="font-medium">৳0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label for="discountAmount" class="text-gray-600">Discount:</label>
+                                <div class="flex items-center">
+                                    <span class="text-gray-500 mr-1">৳</span>
+                                    <input 
+                                        type="number" 
+                                        id="discountAmount" 
+                                        value="0" 
+                                        min="0" 
+                                        step="0.01" 
+                                        class="w-20 px-2 py-1 border border-gray-300 rounded text-right"
+                                    >
+                                </div>
+                            </div>
+                            <hr class="my-3">
+                            <div class="flex justify-between items-center text-lg font-bold">
+                                <span>Total:</span>
+                                <span id="totalAmount" class="text-green-600">৳0.00</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 space-y-3">
+                            <button id="saveInvoice" class="btn btn-primary w-full text-lg py-3">
+                                💾 Save & Print Invoice (Ctrl+S)
+                            </button>
+                            <button onclick="PharmacyApp.resetInvoice()" class="btn btn-outline w-full">
+                                🔄 New Invoice
+                            </button>
+                        </div>
+                        
+                        <div class="mt-4 text-xs text-gray-500 space-y-1">
+                            <div>💡 Keyboard Shortcuts:</div>
+                            <div>• Ctrl+S: Save Invoice</div>
+                            <div>• Ctrl+F: Focus Search</div>
+                            <div>• Escape: Clear Search</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="text-lg font-semibold text-gray-900">📊 Today's Stats</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div>
+                                <div class="text-2xl font-bold text-blue-600" id="todayInvoices">0</div>
+                                <div class="text-xs text-gray-500">Invoices</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-green-600" id="todaySales">৳0</div>
+                                <div class="text-xs text-gray-500">Sales</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // Update current date time
+        function updateDateTime() {
+            const now = new Date();
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        // Update time every minute
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
+
+        // Load today's stats
+        async function loadTodayStats() {
+            try {
+                const response = await fetch('/api/reports/stats?days=1');
+                const data = await response.json();
+                
+                document.getElementById('todayInvoices').textContent = data.stats.total_invoices || 0;
+                document.getElementById('todaySales').textContent = `৳${(data.stats.total_sales || 0).toFixed(0)}`;
+            } catch (error) {
+                console.error('Error loading today\'s stats:', error);
+            }
+        }
+
+        // Load stats when page loads
+        document.addEventListener('DOMContentLoaded', loadTodayStats);
+    </script>
+</body>
+</html>

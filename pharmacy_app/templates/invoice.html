@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Print - CDH Pharmacy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Additional print-specific styles */
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.2;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .print-container {
+            width: 302px;
+            margin: 0 auto;
+            padding: 8px;
+            font-size: 11px;
+        }
+        
+        .no-print {
+            display: none;
+        }
+        
+        @media screen {
+            body {
+                background-color: #f5f5f5;
+                padding: 20px;
+            }
+            
+            .print-container {
+                background: white;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                border-radius: 4px;
+                padding: 20px;
+                max-width: 400px;
+            }
+            
+            .no-print {
+                display: block;
+                margin-bottom: 20px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Print Controls (hidden in print) -->
+    <div class="no-print">
+        <div class="text-center space-x-4">
+            <button onclick="window.print()" class="btn btn-primary">🖨️ Print Invoice</button>
+            <button onclick="window.close()" class="btn btn-outline">❌ Close</button>
+        </div>
+    </div>
+
+    <!-- Invoice Container -->
+    <div class="print-container">
+        <!-- Header -->
+        <div class="print-header">
+            <div class="print-title">CDH PHARMACY</div>
+            <div class="print-subtitle">Bagichagao, Cumilla-3500</div>
+            <div class="print-subtitle">Phone: 01XX-XXXXXX</div>
+        </div>
+
+        <!-- Invoice Info -->
+        <div class="print-invoice-info">
+            <div style="display: flex; justify-content: space-between;">
+                <span>Invoice: <span id="invoiceNumber">Loading...</span></span>
+                <span id="invoiceDate">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Patient Info -->
+        <div class="print-patient-info">
+            <div><strong>Patient:</strong> <span id="patientName">Loading...</span></div>
+            <div id="patientPhone" style="display: none;"><strong>Phone:</strong> <span></span></div>
+            <div id="patientAddress" style="display: none;"><strong>Address:</strong> <span></span></div>
+            <div id="patientBedNo" style="display: none;"><strong>Bed:</strong> <span></span></div>
+            <div id="patientCareOf" style="display: none;"><strong>C/O:</strong> <span></span></div>
+        </div>
+
+        <!-- Items Header -->
+        <div class="print-items">
+            <div style="display: flex; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px; margin-bottom: 4px;">
+                <div style="flex: 1;">Item</div>
+                <div style="width: 30px; text-align: center;">Qty</div>
+                <div style="width: 50px; text-align: right;">Price</div>
+                <div style="width: 60px; text-align: right;">Total</div>
+            </div>
+            
+            <!-- Items will be populated here -->
+            <div id="invoiceItems">
+                <div class="text-center">Loading items...</div>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="print-summary">
+            <div class="print-summary-line">
+                <span>Subtotal:</span>
+                <span id="subtotalAmount">৳0.00</span>
+            </div>
+            <div id="discountLine" class="print-summary-line" style="display: none;">
+                <span>Discount:</span>
+                <span id="discountAmount">৳0.00</span>
+            </div>
+            <div class="print-summary-line print-total">
+                <span>Total:</span>
+                <span id="totalAmount">৳0.00</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="print-footer">
+            <div class="print-footer-line">Thank you for your visit</div>
+            <div class="print-footer-line">Seal & Signature</div>
+            <div class="print-footer-line" style="margin-top: 8px;">
+                Printed: <span id="printDateTime"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get invoice ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const invoiceId = urlParams.get('id');
+
+        // Load invoice data
+        async function loadInvoice() {
+            if (!invoiceId) {
+                document.querySelector('.print-container').innerHTML = '<div class="text-center">Invalid invoice ID</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/get_invoice/${invoiceId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    document.querySelector('.print-container').innerHTML = `<div class="text-center text-red-600">${data.error}</div>`;
+                    return;
+                }
+
+                populateInvoice(data.invoice, data.items);
+            } catch (error) {
+                console.error('Error loading invoice:', error);
+                document.querySelector('.print-container').innerHTML = '<div class="text-center text-red-600">Failed to load invoice</div>';
+            }
+        }
+
+        // Populate invoice data
+        function populateInvoice(invoice, items) {
+            // Invoice details
+            document.getElementById('invoiceNumber').textContent = invoice.invoice_number;
+            document.getElementById('invoiceDate').textContent = new Date(invoice.created_at).toLocaleDateString();
+
+            // Patient info
+            document.getElementById('patientName').textContent = invoice.patient_name || 'N/A';
+            
+            if (invoice.patient_phone) {
+                document.getElementById('patientPhone').style.display = 'block';
+                document.getElementById('patientPhone').querySelector('span').textContent = invoice.patient_phone;
+            }
+            
+            if (invoice.patient_address) {
+                document.getElementById('patientAddress').style.display = 'block';
+                document.getElementById('patientAddress').querySelector('span').textContent = invoice.patient_address;
+            }
+            
+            if (invoice.patient_bed_no) {
+                document.getElementById('patientBedNo').style.display = 'block';
+                document.getElementById('patientBedNo').querySelector('span').textContent = invoice.patient_bed_no;
+            }
+            
+            if (invoice.patient_care_of) {
+                document.getElementById('patientCareOf').style.display = 'block';
+                document.getElementById('patientCareOf').querySelector('span').textContent = invoice.patient_care_of;
+            }
+
+            // Items
+            const itemsContainer = document.getElementById('invoiceItems');
+            itemsContainer.innerHTML = items.map(item => `
+                <div class="print-item">
+                    <div class="print-item-name">
+                        ${item.medicine_name}
+                    </div>
+                    <div class="print-item-qty">${item.quantity}</div>
+                    <div class="print-item-price">৳${parseFloat(item.unit_price).toFixed(2)}</div>
+                    <div class="print-item-total">৳${parseFloat(item.total_price).toFixed(2)}</div>
+                </div>
+            `).join('');
+
+            // Totals
+            document.getElementById('subtotalAmount').textContent = `৳${parseFloat(invoice.subtotal).toFixed(2)}`;
+            document.getElementById('totalAmount').textContent = `৳${parseFloat(invoice.total).toFixed(2)}`;
+
+            // Show discount if applicable
+            if (parseFloat(invoice.discount) > 0) {
+                document.getElementById('discountLine').style.display = 'flex';
+                document.getElementById('discountAmount').textContent = `৳${parseFloat(invoice.discount).toFixed(2)}`;
+            }
+
+            // Print date time
+            document.getElementById('printDateTime').textContent = new Date().toLocaleString();
+        }
+
+        // Auto print functionality
+        function autoPrint() {
+            // Wait a bit for content to load, then print
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        }
+
+        // Load invoice when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInvoice();
+            
+            // Auto print if requested
+            if (urlParams.get('autoprint') === 'true') {
+                autoPrint();
+            }
+        });
+
+        // Handle print events
+        window.addEventListener('beforeprint', () => {
+            document.body.classList.add('printing');
+        });
+
+        window.addEventListener('afterprint', () => {
+            document.body.classList.remove('printing');
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            if (event.ctrlKey && event.key === 'p') {
+                event.preventDefault();
+                window.print();
+            } else if (event.key === 'Escape') {
+                window.close();
+            }
+        });
+    </script>
+</body>
+</html>

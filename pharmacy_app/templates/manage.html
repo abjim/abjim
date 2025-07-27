@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medicine Management - CDH Pharmacy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💊%3C/text%3E%3C/svg%3E">
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-blue-600">💊 CDH Pharmacy</h1>
+                    </div>
+                    <div class="ml-10">
+                        <div class="nav-tabs flex space-x-8">
+                            <a href="/" class="nav-tab">POS</a>
+                            <a href="/history" class="nav-tab">History</a>
+                            <a href="/reports" class="nav-tab">Reports</a>
+                            <a href="/manage" class="nav-tab active">Manage</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-500">
+                    <span id="currentDateTime"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6">
+        <!-- Page Header -->
+        <div class="mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">💊 Medicine Management</h1>
+                    <p class="text-gray-600">Add, edit, and manage your medicine inventory</p>
+                </div>
+                <button onclick="MedicineManager.showMedicineForm()" class="btn btn-primary">
+                    ➕ Add New Medicine
+                </button>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="card mb-6">
+            <div class="card-header">
+                <h2 class="text-lg font-semibold text-gray-900">🔍 Search & Filter</h2>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Search Medicine</label>
+                        <input 
+                            type="text" 
+                            id="medicineSearchFilter" 
+                            placeholder="Name, generic, company..."
+                            class="form-input"
+                            oninput="filterMedicines()"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                        <select id="companyFilter" class="form-select" onchange="filterMedicines()">
+                            <option value="">All Companies</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Generic</label>
+                        <select id="genericFilter" class="form-select" onchange="filterMedicines()">
+                            <option value="">All Generics</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                        <select id="sortBy" class="form-select" onchange="sortMedicines()">
+                            <option value="name">Name (A-Z)</option>
+                            <option value="company">Company</option>
+                            <option value="price">Price</option>
+                            <option value="times_sold">Most Sold</option>
+                            <option value="stock_level">Stock Level</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 flex space-x-3">
+                    <button onclick="clearFilters()" class="btn btn-outline">
+                        🗑️ Clear Filters
+                    </button>
+                    <button onclick="importMedicines()" class="btn btn-secondary">
+                        📥 Import CSV
+                    </button>
+                    <button onclick="exportMedicines()" class="btn btn-secondary">
+                        📤 Export CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Medicine List -->
+        <div class="card">
+            <div class="card-header">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-semibold text-gray-900">Medicine Inventory</h2>
+                    <div class="text-sm text-gray-600">
+                        <span id="totalMedicines">0</span> medicines in database
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="overflow-x-auto">
+                    <div id="medicinesTable">
+                        <div class="text-center py-8 text-gray-500">
+                            <div class="spinner mx-auto mb-4"></div>
+                            Loading medicines...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medicine Form Modal -->
+    <div id="medicineModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <h2 class="text-xl font-bold text-gray-900">Add/Edit Medicine</h2>
+                        <button onclick="MedicineManager.closeMedicineModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form id="medicineForm" class="space-y-4">
+                        <input type="hidden" id="medicineId" name="id">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Medicine Name *</label>
+                                <input type="text" id="medicineName" name="name" class="form-input" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Strength</label>
+                                <input type="text" id="medicineStrength" name="strength" class="form-input" placeholder="e.g., 500mg, 10ml">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Generic Name</label>
+                                <input type="text" id="medicineGeneric" name="generic" class="form-input">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Sub Generic</label>
+                                <input type="text" id="medicineSubGeneric" name="sub_generic" class="form-input" placeholder="e.g., for insulin classification">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Dosage Form</label>
+                                <select id="medicineDosageForm" name="dosage_form" class="form-select">
+                                    <option value="">Select dosage form</option>
+                                    <option value="Tablet">Tablet</option>
+                                    <option value="Capsule">Capsule</option>
+                                    <option value="Syrup">Syrup</option>
+                                    <option value="Injection">Injection</option>
+                                    <option value="Cream">Cream</option>
+                                    <option value="Ointment">Ointment</option>
+                                    <option value="Drops">Drops</option>
+                                    <option value="Inhaler">Inhaler</option>
+                                    <option value="Powder">Powder</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                                <input type="text" id="medicineCompany" name="company" class="form-input">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Package Size</label>
+                                <input type="text" id="medicinePackageSize" name="package_size" class="form-input" placeholder="e.g., 10x10, 100ml">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Price (৳) *</label>
+                                <input type="number" id="medicinePrice" name="price" class="form-input" step="0.01" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Sorted Name (for printing)</label>
+                                <input type="text" id="medicineSortedName" name="sortedName" class="form-input" placeholder="Name as it should appear on invoice">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Stock Level</label>
+                                <input type="number" id="medicineStockLevel" name="stock_level" class="form-input" min="0" value="0">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product URL (optional)</label>
+                            <input type="url" id="medicineProductUrl" name="product_url" class="form-input" placeholder="https://...">
+                        </div>
+
+                        <div class="flex justify-end space-x-3 pt-4">
+                            <button type="button" onclick="MedicineManager.closeMedicineModal()" class="btn btn-outline">
+                                Cancel
+                            </button>
+                            <button type="button" onclick="MedicineManager.saveMedicine()" class="btn btn-primary">
+                                💾 Save Medicine
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        let allMedicines = [];
+        let filteredMedicines = [];
+
+        // Update current date time
+        function updateDateTime() {
+            const now = new Date();
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        // Enhanced medicine loading with filter population
+        async function loadMedicinesWithFilters() {
+            await MedicineManager.loadMedicines();
+            allMedicines = MedicineManager.medicines;
+            filteredMedicines = [...allMedicines];
+            
+            populateFilters();
+            updateMedicineCount();
+        }
+
+        // Populate filter dropdowns
+        function populateFilters() {
+            const companies = [...new Set(allMedicines.map(m => m.company).filter(Boolean))].sort();
+            const generics = [...new Set(allMedicines.map(m => m.generic).filter(Boolean))].sort();
+
+            const companyFilter = document.getElementById('companyFilter');
+            const genericFilter = document.getElementById('genericFilter');
+
+            companyFilter.innerHTML = '<option value="">All Companies</option>' +
+                companies.map(company => `<option value="${company}">${company}</option>`).join('');
+
+            genericFilter.innerHTML = '<option value="">All Generics</option>' +
+                generics.map(generic => `<option value="${generic}">${generic}</option>`).join('');
+        }
+
+        // Filter medicines
+        function filterMedicines() {
+            const searchTerm = document.getElementById('medicineSearchFilter').value.toLowerCase();
+            const selectedCompany = document.getElementById('companyFilter').value;
+            const selectedGeneric = document.getElementById('genericFilter').value;
+
+            filteredMedicines = allMedicines.filter(medicine => {
+                const matchesSearch = !searchTerm || 
+                    medicine.name.toLowerCase().includes(searchTerm) ||
+                    (medicine.generic || '').toLowerCase().includes(searchTerm) ||
+                    (medicine.company || '').toLowerCase().includes(searchTerm) ||
+                    (medicine.sortedName || '').toLowerCase().includes(searchTerm);
+
+                const matchesCompany = !selectedCompany || medicine.company === selectedCompany;
+                const matchesGeneric = !selectedGeneric || medicine.generic === selectedGeneric;
+
+                return matchesSearch && matchesCompany && matchesGeneric;
+            });
+
+            sortMedicines();
+            renderFilteredMedicines();
+            updateMedicineCount();
+        }
+
+        // Sort medicines
+        function sortMedicines() {
+            const sortBy = document.getElementById('sortBy').value;
+            
+            filteredMedicines.sort((a, b) => {
+                let aVal = a[sortBy] || '';
+                let bVal = b[sortBy] || '';
+
+                if (sortBy === 'price' || sortBy === 'times_sold' || sortBy === 'stock_level') {
+                    return bVal - aVal; // Descending for numbers
+                } else {
+                    return aVal.toString().localeCompare(bVal.toString()); // Ascending for text
+                }
+            });
+        }
+
+        // Render filtered medicines
+        function renderFilteredMedicines() {
+            const container = document.getElementById('medicinesTable');
+            
+            if (filteredMedicines.length === 0) {
+                container.innerHTML = '<div class="text-center py-8 text-gray-500">No medicines found matching the filters</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Company</th>
+                            <th>Generic</th>
+                            <th>Strength</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Times Sold</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredMedicines.map(medicine => `
+                            <tr>
+                                <td>
+                                    <div class="font-medium">${medicine.name}</div>
+                                    <div class="text-sm text-gray-600">${medicine.sortedName || ''}</div>
+                                    ${medicine.dosage_form ? `<div class="text-xs text-gray-500">${medicine.dosage_form}</div>` : ''}
+                                </td>
+                                <td>${medicine.company || '-'}</td>
+                                <td>
+                                    <div>${medicine.generic || '-'}</div>
+                                    ${medicine.sub_generic ? `<div class="text-xs text-gray-500">${medicine.sub_generic}</div>` : ''}
+                                </td>
+                                <td>${medicine.strength || '-'}</td>
+                                <td class="font-medium">৳${medicine.price}</td>
+                                <td>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                        medicine.stock_level <= 10 ? 'bg-red-100 text-red-800' : 
+                                        medicine.stock_level <= 50 ? 'bg-yellow-100 text-yellow-800' : 
+                                        'bg-green-100 text-green-800'
+                                    }">
+                                        ${medicine.stock_level || 0}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="text-sm font-medium">${medicine.times_sold || 0}</span>
+                                </td>
+                                <td>
+                                    <div class="flex space-x-2">
+                                        <button onclick="MedicineManager.editMedicine(${medicine.id})" 
+                                                class="btn btn-outline btn-sm">Edit</button>
+                                        <button onclick="MedicineManager.deleteMedicine(${medicine.id})" 
+                                                class="btn btn-danger btn-sm">Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Update medicine count
+        function updateMedicineCount() {
+            document.getElementById('totalMedicines').textContent = filteredMedicines.length;
+        }
+
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('medicineSearchFilter').value = '';
+            document.getElementById('companyFilter').value = '';
+            document.getElementById('genericFilter').value = '';
+            document.getElementById('sortBy').value = 'name';
+            filterMedicines();
+        }
+
+        // Import medicines from CSV
+        function importMedicines() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.csv';
+            input.onchange = handleCSVImport;
+            input.click();
+        }
+
+        // Handle CSV import
+        function handleCSVImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csv = e.target.result;
+                    const lines = csv.split('\n');
+                    const headers = lines[0].split(',').map(h => h.trim());
+                    
+                    // Validate headers
+                    const requiredHeaders = ['name', 'price'];
+                    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+                    
+                    if (missingHeaders.length > 0) {
+                        PharmacyApp.showAlert(`Missing required columns: ${missingHeaders.join(', ')}`, 'error');
+                        return;
+                    }
+
+                    // Process CSV data
+                    const medicines = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].split(',').map(v => v.trim());
+                        if (values.length < headers.length) continue;
+
+                        const medicine = {};
+                        headers.forEach((header, index) => {
+                            medicine[header] = values[index] || '';
+                        });
+
+                        medicines.push(medicine);
+                    }
+
+                    PharmacyApp.showAlert(`Successfully imported ${medicines.length} medicines`, 'success');
+                    // Here you would typically send the data to the server
+                    console.log('Imported medicines:', medicines);
+                    
+                } catch (error) {
+                    console.error('Import error:', error);
+                    PharmacyApp.showAlert('Failed to import CSV file', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Export medicines to CSV
+        function exportMedicines() {
+            if (filteredMedicines.length === 0) {
+                PharmacyApp.showAlert('No medicines to export', 'warning');
+                return;
+            }
+
+            const headers = ['name', 'strength', 'generic', 'sub_generic', 'dosage_form', 'company', 'package_size', 'price', 'sortedName', 'stock_level', 'times_sold'];
+            const csvContent = [
+                headers.join(','),
+                ...filteredMedicines.map(medicine => 
+                    headers.map(header => `"${medicine[header] || ''}"`).join(',')
+                )
+            ].join('\n');
+
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `medicines_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            PharmacyApp.showAlert('Medicines exported successfully', 'success');
+        }
+
+        // Override MedicineManager's renderMedicinesTable to use our filtered approach
+        const originalRenderTable = MedicineManager.renderMedicinesTable;
+        MedicineManager.renderMedicinesTable = function() {
+            allMedicines = this.medicines;
+            filteredMedicines = [...allMedicines];
+            populateFilters();
+            renderFilteredMedicines();
+            updateMedicineCount();
+        };
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDateTime();
+            setInterval(updateDateTime, 60000);
+            
+            loadMedicinesWithFilters();
+
+            // Close modal on escape
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !document.getElementById('medicineModal').classList.contains('hidden')) {
+                    MedicineManager.closeMedicineModal();
+                }
+            });
+
+            // Close modal on background click
+            document.getElementById('medicineModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    MedicineManager.closeMedicineModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
